@@ -10,17 +10,27 @@ const int SCREEN_HEIGHT = 600;
 
 const char* GAME_OVER_TEXT = "Game Over!";
 
+const float SEASON_DURATION = 600.0f;
+const float SEASON_CHANGE_SPEED = 10.0f;
+const float COLOR_CHANGE_DELAY = 30.0f;
+
 Rectangle bunny;
 Rectangle fox;
 float seasonX;
 bool gameOver;
+int counter = 0;
+bool isWinter = true;
+bool isBunnyWinter = true;
 
 void restart()
 {
-	bunny = (Rectangle){10, 490, 100, 100};
-	fox = (Rectangle){10, 10, 100, 100};
+	bunny = (Rectangle){10, 490, 10, 10};
+	fox = (Rectangle){10, 10, 10, 10};
 	seasonX = SCREEN_WIDTH;
 	gameOver = false;
+	counter = 0;
+	isWinter = true;
+	isBunnyWinter = true;
 }
 
 int main()
@@ -32,7 +42,7 @@ int main()
 	// At the moment textures are just white and green colors.
 	// Later we might want to change the shader so that it applies color multiplication to a single texture.
 	
-	Image imWinter = GenImageColor(SCREEN_WIDTH, SCREEN_HEIGHT, (Color){ 255, 255, 255, 255 });
+	Image imWinter = GenImageColor(SCREEN_WIDTH, SCREEN_HEIGHT, (Color){ 0, 0, 255, 255 });
     Texture texWinter = LoadTextureFromImage(imWinter);
     UnloadImage(imWinter);
 
@@ -44,9 +54,10 @@ int main()
 	// devider and texture 1 (from the shader, to be set later)
     int texWinterLoc = GetShaderLocation(shader, "texture1");
     int dividerLoc = GetShaderLocation(shader, "divider");
+	
 
 	restart();
-
+	
 	while (!WindowShouldClose())
 	{
 		if (!gameOver)
@@ -67,13 +78,30 @@ int main()
 			bunny.x = Clamp(bunny.x, 0, SCREEN_WIDTH-bunny.width);
 			bunny.y = Clamp(bunny.y, 0, SCREEN_HEIGHT-bunny.height);
 
-			// Advance the season
-			if (seasonX>0)
+			// Keep seasonX unchanged while the season timer is running
+			// once season duration is over, season advances
+
+			counter++;
+			
+			if (counter > COLOR_CHANGE_DELAY)
 			{
-				seasonX -= 1;
+				isBunnyWinter = isWinter;
 			}
-			float dividerValue = Remap(seasonX, 0, SCREEN_WIDTH, 0, 1);
-			SetShaderValue(shader, dividerLoc, &dividerValue, SHADER_UNIFORM_FLOAT);			
+
+			if (counter > SEASON_DURATION)
+			{
+				// Advance the season
+				seasonX -= SEASON_CHANGE_SPEED;
+				if (seasonX <= 0)
+				{
+					counter = 0;
+					seasonX = SCREEN_WIDTH;
+					isWinter = !isWinter;					
+				}							
+			}
+			float dividerValue = Remap(seasonX, 0, SCREEN_WIDTH, 0, 1);	
+			SetShaderValue(shader, dividerLoc, &dividerValue, SHADER_UNIFORM_FLOAT);
+						
 		}		
 
 		//Move the fox
@@ -82,14 +110,25 @@ int main()
 		Vector2 foxVector = {fox.x+fox.width/2, fox.y+fox.height/2};
 		Vector2 foxDirection = Vector2Subtract(bunnyVector, foxVector);
 		Vector2 foxMovement = Vector2Scale(Vector2Normalize(foxDirection), FOX_SPEED);
-		fox.x += foxMovement.x;
-		fox.y += foxMovement.y;
+		// Foxs moves only when the bunny is in the season of it's color
+		bool isBunnyInWinter = isWinter;
+		if (bunny.x>seasonX)
+		{
+			isBunnyInWinter = !isBunnyInWinter;
+		}
+
+		bool isBunnySafe = isBunnyWinter == isBunnyInWinter;
+		if (!isBunnySafe)
+		{
+			fox.x += foxMovement.x;
+			fox.y += foxMovement.y;
+		}
+		
 
 		// Collision detection
 		if (CheckCollisionRecs(bunny, fox))
 		{
-			// Commented out for testing purposes
-			//gameOver = true;
+			gameOver = true;
 		}
 
 		// Restart
@@ -100,16 +139,27 @@ int main()
 
 		// Draw
 		BeginDrawing();
-			ClearBackground(RAYWHITE);
-
 			// Draw the season
 			BeginShaderMode(shader);
-                SetShaderValueTexture(shader, texWinterLoc, texSummer);
-                DrawTexture(texWinter, 0, 0, WHITE);
+			Texture* texLeft;
+			Texture* texRight;
+			if (isWinter)
+			{
+				texLeft = &texWinter;
+				texRight = &texSummer;
+			}
+			else
+			{
+				texLeft = &texSummer;
+				texRight = &texWinter;
+			}
+				
+			SetShaderValueTexture(shader, texWinterLoc, *texRight);
+			DrawTexture(*texLeft, 0, 0, WHITE);
             EndShaderMode();
 
 			// Draw characters
-			DrawRectangleRec(bunny, DARKGRAY);
+			DrawRectangleRec(bunny, isBunnyWinter ? WHITE : BROWN);
 			DrawRectangleRec(fox, ORANGE);
 
 			DrawLineEx((struct Vector2){seasonX,0}, (struct Vector2){seasonX,SCREEN_HEIGHT}, 4, BLACK);
