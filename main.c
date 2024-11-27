@@ -1,5 +1,5 @@
-#include "raylib.h"
-#include "raymath.h"
+#include "C:\\raylib\\raylib\\src\\raylib.h"
+#include "C:\\raylib\\raylib\\src\\raymath.h"
 #include <stdio.h>
 
 const float BUNNY_SPEED = 2.0f;
@@ -25,20 +25,10 @@ int counter;
 bool isWinter;
 bool isBunnyWinter;
 
-void restart()
-{
-	bunny = (Rectangle){10, 490, 20, 20};
-	fox = (Rectangle){0, 0, 20, 20};
-	respawnFox();
-	trap = (Rectangle){SCREEN_WIDTH/2-100, SCREEN_HEIGHT/2-100, 30, 30};
-	lake = (Rectangle){SCREEN_WIDTH/2-50, SCREEN_HEIGHT/2-50, 100, 100};
-	gameOver = false;
-    score = 0;
-	seasonX = SCREEN_WIDTH;
-	counter = 0;
-	isWinter = true;
-	isBunnyWinter = true;
-}
+bool areTrapsInYear;
+bool areLakesInYear;
+
+int year;
 
 void respawnFox() {
     if (GetRandomValue(0, 1) == 0)
@@ -53,6 +43,25 @@ void respawnFox() {
         fox.y = GetRandomValue(-fox.height, SCREEN_HEIGHT);
         fox.x = GetRandomValue(0, 1) ? -fox.width : SCREEN_WIDTH;
     }
+}
+
+void restart()
+{
+	bunny = (Rectangle){10, 490, 20, 20};
+	fox = (Rectangle){0, 0, 20, 20};
+	respawnFox();	
+	trap = (Rectangle){SCREEN_WIDTH/2-100, SCREEN_HEIGHT/2-100, 30, 30};
+	// by default lake is not in the game (invisible = off screen), it appears in year 1
+	lake = (Rectangle){SCREEN_WIDTH-100, SCREEN_HEIGHT-100, 0, 0};
+	gameOver = false;
+    score = 0;
+	seasonX = SCREEN_WIDTH;
+	counter = 0;
+	isWinter = true;
+	isBunnyWinter = true;
+	year = 0;
+	areTrapsInYear = true;
+	areLakesInYear = false;
 }
 
 bool isRectangleInWinter(Rectangle r) {
@@ -122,7 +131,25 @@ int main()
 				{
 					counter = 0;
 					seasonX = SCREEN_WIDTH;
-					isWinter = !isWinter;					
+					isWinter = !isWinter;
+					if (isWinter)
+					{
+						year++;
+						if (year == 1)
+						{
+							areTrapsInYear = false;
+							areLakesInYear = true;
+						}
+						if (!areTrapsInYear)
+						{
+							// Place trap outside the screen instead of removing it (to avoid extra if statements)
+							trap = (Rectangle){SCREEN_WIDTH-100, SCREEN_HEIGHT-100, 0, 0};
+						}
+						if (areLakesInYear)
+						{
+							lake = (Rectangle){SCREEN_WIDTH/2-50, SCREEN_HEIGHT/2-50, 100, 100};
+						}
+					}					
 				}							
 			}
 			float dividerValue = Remap(seasonX, 0, SCREEN_WIDTH, 0, 1);	
@@ -163,11 +190,12 @@ int main()
             // Collision detection
             if (CheckCollisionRecs(bunny, fox))
             {
-                gameOver = true;
+                //gameOver = true;
             }
+			
             if (CheckCollisionRecs(bunny, trap))
             {
-                gameOver = true;
+                //gameOver = true;
             }
 
             if (CheckCollisionRecs(fox, trap))
@@ -228,6 +256,7 @@ int main()
 			}
 
             DrawText(TextFormat("Foxes trapped: %i", score), 10, 10, 30, RED);
+            DrawText(TextFormat("Year: %i", year), 10, 40, 30, RED);
 
 		EndDrawing();
 	}
