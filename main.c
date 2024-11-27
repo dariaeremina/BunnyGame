@@ -2,8 +2,8 @@
 #include "C:\\raylib\\raylib\\src\\raymath.h"
 #include <stdio.h>
 
-const float BUNNY_SPEED = 2.0f;
-const float FOX_SPEED = 3.0f;
+const float BUNNY_SPEED = 3.0f;
+const float FOX_SPEED = 4.0f;
 
 const int SCREEN_WIDTH = 800;
 const int SCREEN_HEIGHT = 600;
@@ -19,6 +19,7 @@ Rectangle fox;
 Rectangle trap;
 Rectangle lake;
 bool gameOver;
+bool win;
 int score;
 float seasonX;
 int counter;
@@ -29,6 +30,8 @@ bool areTrapsInYear;
 bool areLakesInYear;
 
 int year;
+Rectangle traps[3];
+int health;
 
 void respawnFox() {
     if (GetRandomValue(0, 1) == 0)
@@ -50,7 +53,10 @@ void restart()
 	bunny = (Rectangle){10, 490, 20, 20};
 	fox = (Rectangle){0, 0, 20, 20};
 	respawnFox();	
-	trap = (Rectangle){SCREEN_WIDTH/2-100, SCREEN_HEIGHT/2-100, 30, 30};
+	//trap = (Rectangle){SCREEN_WIDTH/2-100, SCREEN_HEIGHT/2-100, 30, 30};
+	traps[0] = (Rectangle){SCREEN_WIDTH*0.55, SCREEN_HEIGHT*0.3, 30, 30};
+	traps[1] = (Rectangle){SCREEN_WIDTH*0.3, SCREEN_HEIGHT*0.7, 30, 30};
+	traps[2] = (Rectangle){SCREEN_WIDTH*0.7, SCREEN_HEIGHT*0.6, 30, 30};
 	// by default lake is not in the game (invisible = off screen), it appears in year 1
 	lake = (Rectangle){SCREEN_WIDTH-100, SCREEN_HEIGHT-100, 0, 0};
 	gameOver = false;
@@ -62,6 +68,7 @@ void restart()
 	year = 0;
 	areTrapsInYear = true;
 	areLakesInYear = false;
+	health = 300;
 }
 
 bool isRectangleInWinter(Rectangle r) {
@@ -135,6 +142,12 @@ int main()
 					if (isWinter)
 					{
 						year++;
+						//if (year==10)
+						if (year == 1)
+						{
+							win = true;
+							gameOver = true;
+						}
 						if (year == 1)
 						{
 							areTrapsInYear = false;
@@ -143,7 +156,9 @@ int main()
 						if (!areTrapsInYear)
 						{
 							// Place trap outside the screen instead of removing it (to avoid extra if statements)
-							trap = (Rectangle){SCREEN_WIDTH-100, SCREEN_HEIGHT-100, 0, 0};
+							traps[0] = (Rectangle){SCREEN_WIDTH-100, SCREEN_HEIGHT-100, 0, 0};
+							traps[1] = (Rectangle){SCREEN_WIDTH-100, SCREEN_HEIGHT-100, 0, 0};
+							traps[2] = (Rectangle){SCREEN_WIDTH-100, SCREEN_HEIGHT-100, 0, 0};
 						}
 						if (areLakesInYear)
 						{
@@ -190,19 +205,25 @@ int main()
             // Collision detection
             if (CheckCollisionRecs(bunny, fox))
             {
-                //gameOver = true;
+				health--;
+				if (health <= 0)
+				{
+					gameOver = true;
+				}
             }
 			
-            if (CheckCollisionRecs(bunny, trap))
-            {
-                //gameOver = true;
-            }
-
-            if (CheckCollisionRecs(fox, trap))
-            {
-                //score += 1;
-                respawnFox();
-            }
+			for (int i = 0; i < 3; i++)
+			{
+				if (CheckCollisionRecs(bunny, traps[i]))
+				{
+					//gameOver = true;
+				}
+				if (CheckCollisionRecs(fox, traps[i]))
+				{
+					score += 1;
+					respawnFox();
+				}
+			}
 
             // Fox freezes in lake
             if (foxWasSwimming && CheckCollisionRecs(fox, lake) && isRectangleInWinter(lake))
@@ -240,7 +261,10 @@ int main()
             EndShaderMode();
 
 			// Draw characters
-			DrawRectangleRec(trap, RED);
+			for (int i = 0; i < 3; i++)
+			{
+				DrawRectangleRec(traps[i], RED);
+			}			
 			DrawRectangleRec(lake, isRectangleInWinter(lake) ? WHITE : BLUE);
 			DrawRectangleRec(bunny, isBunnyWinter ? WHITE : BROWN);
 			DrawRectangleRec(fox, ORANGE);
@@ -249,14 +273,28 @@ int main()
 			
 			if (gameOver)
 			{
-				int gameOverWidth = MeasureText(GAME_OVER_TEXT, 70);
-				int restartWidth = MeasureText("Press R to restart", 50);
-				DrawText(GAME_OVER_TEXT, SCREEN_WIDTH/2-gameOverWidth/2, SCREEN_HEIGHT/2-50, 70, RED);
-				DrawText("Press R to restart", SCREEN_WIDTH/2-restartWidth/2, SCREEN_HEIGHT/2+30, 50, RED);
-			}
+				if (win)
+				{
+					DrawText("You died of old age.", 50, SCREEN_HEIGHT/2-50, 70, BLUE);
+					DrawText(TextFormat("You survived %i years", year), 50, SCREEN_HEIGHT/2+30, 35, BLUE);
+					DrawText(TextFormat("And killed %i foxes", score), 50, SCREEN_HEIGHT/2+65, 35, BLUE);
+				}
+				else
+				{
+					int gameOverWidth = MeasureText(GAME_OVER_TEXT, 70);
+					int restartWidth = MeasureText("Press R to restart", 50);
+					DrawText(GAME_OVER_TEXT, SCREEN_WIDTH/2-gameOverWidth/2, SCREEN_HEIGHT/2-50, 70, RED);
+					DrawText("Press R to restart", SCREEN_WIDTH/2-restartWidth/2, SCREEN_HEIGHT/2+30, 50, RED);
 
-            DrawText(TextFormat("Foxes trapped: %i", score), 10, 10, 30, RED);
-            DrawText(TextFormat("Year: %i", year), 10, 40, 30, RED);
+				}
+				
+			}
+			else
+			{
+				DrawText(TextFormat("Foxes trapped: %i", score), 10, 10, 30, RED);
+				DrawText(TextFormat("Year: %i", year), 10, 40, 30, RED);
+				DrawText(TextFormat("Health: %i", health), SCREEN_WIDTH-200, 40, 30, BLUE);
+			}
 
 		EndDrawing();
 	}
