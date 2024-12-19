@@ -17,6 +17,7 @@ Rectangle lake;
 int numFoxes;
 Rectangle foxes[5];
 Rectangle traps[3];
+bool pause = true;
 bool gameOver;
 bool win;
 int score;
@@ -71,6 +72,7 @@ void setupObstacles() {
 
 void restart()
 {
+	year = 0;
 	bunny = (Rectangle){SCREEN_WIDTH/2-10, SCREEN_HEIGHT/2-10, 20, 20};
 	foxes[0] = (Rectangle){0, 0, 20, 20};
 	foxes[1] = (Rectangle){0, 0, 20, 20};
@@ -81,17 +83,16 @@ void restart()
 	respawnFox(1);
 	respawnFox(2);
 	respawnFox(3);
-	respawnFox(2);
+	respawnFox(4);
     numFoxes = 0;
-    setupObstacles();
 	gameOver = false;
     score = 0;
 	seasonX = SCREEN_WIDTH;
 	counter = 0;
 	isWinter = true;
 	isBunnyWinter = true;
-	year = 0;
 	health = 300;
+    setupObstacles();
 }
 
 bool isRectangleInWinter(Rectangle r) {
@@ -111,11 +112,43 @@ float scaleSpeedWhenInLake(Rectangle r) {
     return 1.0;
 }
 
-void drawTextCentered(char* text, int x, int y, int fontSize, Color color) {
+void drawTextCentered(const char* text, int x, int y, int fontSize, Color color) {
     int width = MeasureText(text, fontSize);
     DrawText(text, x-width/2, y, fontSize, color);
 }
 
+void drawInstructions(){
+	ClearBackground(GRAY);
+	drawTextCentered("Instructions", SCREEN_WIDTH/2, 40, 30, BLACK);
+	drawTextCentered("(Press P to hide/show)", SCREEN_WIDTH/2, 75, 20, BLACK);
+
+	Rectangle bunnyPic = (Rectangle){20, 115, 20, 20};
+	DrawRectangleRec(bunnyPic, WHITE);
+	DrawText("Bunny (that's you)", bunnyPic.x+bunnyPic.width+10, bunnyPic.y, 20, WHITE);
+	Rectangle foxPic = (Rectangle){20, bunnyPic.y+bunnyPic.height+10, 20, 20};
+
+	DrawRectangleRec(foxPic, ORANGE);
+	DrawText("Fox (your enemy)", foxPic.x+foxPic.width+10, foxPic.y, 20, ORANGE);
+	drawTextCentered("Your fur changes color with the season", SCREEN_WIDTH/2, foxPic.y+foxPic.height+30, 20, BLACK);
+
+	Rectangle summerBunnyPic = (Rectangle){20, foxPic.y+foxPic.height+60, 20, 20};
+	DrawRectangleRec(summerBunnyPic, BROWN);
+	DrawText("Bunny in summer", summerBunnyPic.x+summerBunnyPic.width+10, summerBunnyPic.y, 20, BROWN);
+
+	drawTextCentered("Foxes don't see you when you're hidden", SCREEN_WIDTH/2, summerBunnyPic.y+summerBunnyPic.height+10, 20, BLACK);
+
+	Rectangle trapPic = (Rectangle){20, summerBunnyPic.y+summerBunnyPic.height+60, 20, 20};
+	DrawRectangleRec(trapPic, RED);
+	DrawText("Trap", trapPic.x+trapPic.width+10, trapPic.y, 20, RED);
+
+	drawTextCentered("Lure foxes into the traps", SCREEN_WIDTH/2, trapPic.y+trapPic.height+10, 20, BLACK);
+
+	Rectangle lakePic = (Rectangle){20, trapPic.y+trapPic.height+40, 20, 20};
+	DrawRectangleRec(lakePic, BLUE);
+	DrawText("Lake", lakePic.x+lakePic.width+10, lakePic.y, 20, BLUE);
+
+	drawTextCentered("Foxes freeze when the lake freezes in winter", SCREEN_WIDTH/2, lakePic.y+lakePic.height+10, 20, BLACK);
+}
 
 
 int main()
@@ -145,7 +178,7 @@ int main()
 	
 	while (!WindowShouldClose())
 	{
-		if (!gameOver)
+		if (!gameOver && !pause)
 		{
 			// Keep seasonX unchanged while the season timer is running
 			// once season duration is over, season advances
@@ -274,74 +307,99 @@ int main()
             }
 		}		
 
-		// Restart
-		if (IsKeyPressed(KEY_R))
+	    if (!pause && gameOver)
 		{
-			restart();
+			// Restart
+			if (IsKeyPressed(KEY_R))
+			{
+				restart();
+			}
 		}
+		
+
+		// Pause
+		if (!gameOver)
+		{
+			if (IsKeyPressed(KEY_P))
+			{
+				pause = !pause;
+				printf("Paused\n");
+			}
+		}
+		
 
 		// Draw
+		
 		BeginDrawing();
-			// Draw the season
-			BeginShaderMode(shader);
-			Texture* texLeft;
-			Texture* texRight;
-			if (isWinter)
+	        if (pause)
+		    {
+				// Draw instructions
+				drawInstructions();
+		    }
+		    else
 			{
-				texLeft = &texWinter;
-				texRight = &texSummer;
-			}
-			else
-			{
-				texLeft = &texSummer;
-				texRight = &texWinter;
-			}
+				// Draw the season
+				BeginShaderMode(shader);
+				Texture* texLeft;
+				Texture* texRight;
+				if (isWinter)
+				{
+					texLeft = &texWinter;
+					texRight = &texSummer;
+				}
+				else
+				{
+					texLeft = &texSummer;
+					texRight = &texWinter;
+				}
+					
+				SetShaderValueTexture(shader, texWinterLoc, *texRight);
+				DrawTexture(*texLeft, 0, 0, WHITE);
+				EndShaderMode();
+
+				// Draw characters			
+				for (int i = 0; i < 3; i++)
+				{
+					DrawRectangleRec(traps[i], RED);
+				}			
+				DrawRectangleRec(lake, isRectangleInWinter(lake) ? WHITE : BLUE);
+				DrawRectangleRec(bunny, isBunnyWinter ? WHITE : BROWN);
+				for (int i = 0; i < numFoxes; i++)
+				{
+					DrawRectangleRec(foxes[i], ORANGE);
+				}
+
+				DrawLineEx((struct Vector2){seasonX,0}, (struct Vector2){seasonX,SCREEN_HEIGHT}, 4, BLACK);
 				
-			SetShaderValueTexture(shader, texWinterLoc, *texRight);
-			DrawTexture(*texLeft, 0, 0, WHITE);
-            EndShaderMode();
+				if (gameOver)
+				{
+					int textX = SCREEN_WIDTH/2;
+					int textY = 180;
+					Color textColor = RED;
 
-			// Draw characters
-			for (int i = 0; i < 3; i++)
-			{
-				DrawRectangleRec(traps[i], RED);
-			}			
-			DrawRectangleRec(lake, isRectangleInWinter(lake) ? WHITE : BLUE);
-			DrawRectangleRec(bunny, isBunnyWinter ? WHITE : BROWN);
-			for (int i = 0; i < numFoxes; i++)
-            {
-                DrawRectangleRec(foxes[i], ORANGE);
-            }
-
-			DrawLineEx((struct Vector2){seasonX,0}, (struct Vector2){seasonX,SCREEN_HEIGHT}, 4, BLACK);
+					if (win) {
+						textColor = BLUE;
+						drawTextCentered("You died of old age.", textX, textY, 70, textColor);
+					}
+					else {
+						drawTextCentered("Game Over!", textX, textY, 70, textColor);
+					}
+					textY += 90;
+					drawTextCentered(TextFormat("You survived %i years", year), textX, textY, 35, textColor);
+					textY += 40;
+					drawTextCentered(TextFormat("And killed %i foxes", score), textX, textY, 35, textColor);
+					textY += 70;
+					drawTextCentered("Press R to restart", textX, textY, 50, textColor);
+					
+				}
+				else
+				{
+					DrawText(TextFormat("Foxes trapped: %i", score), 10, 10, 30, RED);
+					DrawText(TextFormat("Year: %i", year), 10, 40, 30, RED);
+					DrawText(TextFormat("Health: %i", health), SCREEN_WIDTH-200, 40, 30, BLUE);
+				}
+			}
 			
-			if (gameOver)
-			{
-                int textX = SCREEN_WIDTH/2;
-                int textY = 180;
-                Color textColor = RED;
-
-                if (win) {
-                    textColor = BLUE;
-                    drawTextCentered("You died of old age.", textX, textY, 70, textColor);
-                }
-                else {
-                    drawTextCentered("Game Over!", textX, textY, 70, textColor);
-                }
-                textY += 90;
-                drawTextCentered(TextFormat("You survived %i years", year), textX, textY, 35, textColor);
-                textY += 40;
-                drawTextCentered(TextFormat("And killed %i foxes", score), textX, textY, 35, textColor);
-                textY += 70;
-                drawTextCentered("Press R to restart", textX, textY, 50, textColor);
-				
-			}
-			else
-			{
-				DrawText(TextFormat("Foxes trapped: %i", score), 10, 10, 30, RED);
-				DrawText(TextFormat("Year: %i", year), 10, 40, 30, RED);
-				DrawText(TextFormat("Health: %i", health), SCREEN_WIDTH-200, 40, 30, BLUE);
-			}
 
 		EndDrawing();
 	}
@@ -354,18 +412,9 @@ Introduction
 (Press S to skip)
 Bunny (that's you)
 Fox (your enemy)
-[You die to the fox]
-[You press R]
 Your fur changes color with the seasons
-[2 season changes]
-[The fox spawns]
 The fox doesn't see you when you're hidden
 Lure the fox into traps
-[You lure the fox into a trap]
-[Traps disappear and lake appears]
 Lure the fox into the lake
 The fox will freeze with the lake in winter
-[You freeze the fox]
-[No fox spawns]
-Good luck! Press R to begin for REAL
 */
